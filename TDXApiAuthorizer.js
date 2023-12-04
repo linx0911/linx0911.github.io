@@ -173,21 +173,6 @@ function AccessTrain(){
     URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/Inclusive/1020/to/1000/' + getToday() + '?%24top=10000&%24format=JSONStationOfLine';
     trainData = GetAPIParsedData(URL);
     document.getElementById("banciao2taipeiTrain").textContent = TrainTimeTablePrinter(trainData.TrainTimetables);
-
-    URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/StationLiveBoard/Station/1020?%24top=10000&%24format=JSON';
-    trainData = GetAPIParsedData(URL);
-    let liveBoard = trainData.StationLiveBoards;
-    let allTrainInfo = "";
-    for(i = 0; i < liveBoard.length; ++i) {
-        let trainInfo = liveBoard[i].TrainTypeName.Zh_tw + " 往 " +  liveBoard[i].EndingStationName.Zh_tw + 
-                        "(往" + ((liveBoard[i].Direction == 0) ? "北" : "南") + ") 抵達時間: " + 
-                        liveBoard[i].ScheduleArrivalTime + "\n";
-        allTrainInfo = allTrainInfo + trainInfo;
-    }
-    if(allTrainInfo === "") {
-        allTrainInfo = "There is no Train now.";
-    }
-    document.getElementById("realTime").textContent = allTrainInfo;
 }
 
 function AccessHSPR(){
