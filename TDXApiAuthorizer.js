@@ -62,11 +62,13 @@ function getToday() {
     return yourDate.toISOString().split('T')[0];
 }
 
-function isAvailableTime(stopTime) {
+function isAvailableTime(stopTime, delay = 0) {
     const now = new Date();
     const cur_time = now.getHours() + ':' + now.getMinutes();
     var time1Date = new Date("01/01/2000 "+cur_time);
     var time2Date = new Date("01/01/2000 "+stopTime);
+    if(delay > 0)
+        time2Date = new Date(time2Date.getTime() + delay*60000);
     if(time1Date > time2Date) {
         return false;
     }
@@ -79,117 +81,108 @@ function AccessMetro(){
     let accesstoken = JSON.parse(accesstokenStr);    
 
     if(accesstoken !=undefined){
-        $.ajax({
-            type: 'GET',
-            url: 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/S2STravelTime/TRTC?%24top=30&%24format=JSON',             
-            headers: {
-                "authorization": "Bearer " + accesstoken.access_token,                
-              },            
-            async: false,
-            success: function (Data) {
-                let trainData = JSON.parse(JSON.stringify(Data));
-                for(i = 0; i < trainData.length; ++i) {
-                    if(trainData[i].LineNo != 'R') {
-                        continue;
-                    }
-                    let travelTimes = trainData[i].TravelTimes;
-                    for(j = 0; j < trainData[i].TravelTimes.length; ++j) {
-                        //console.log('MRT', JSON.stringify(trainData[i].TravelTimes[j]));
-                        let FromStationName = trainData[i].TravelTimes[j].FromStationName.Zh_tw;
-                        let ToStationName = trainData[i].TravelTimes[j].ToStationName.Zh_tw;
-                        let zhongyi = '忠義';
-                        if( '忠義' != FromStationName && '忠義' != ToStationName) {
-                            continue;
-                        }
-                    }
-                    
-                }
-            },
-            error: function (xhr, textStatus, thrownError) {
-                console.log('errorStatus:',textStatus);
-                console.log('Error:',thrownError);
+        let URL = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/S2STravelTime/TRTC?%24top=30&%24format=JSON';
+        let trainData = GetAPIParsedData(URL);
+        for(i = 0; i < trainData.length; ++i) {
+            if(trainData[i].LineNo != 'R') {
+                continue;
             }
-        });
-        $.ajax({
-            type: 'GET',
-            url: 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TRTC?%24top=300000&%24format=JSON',             
-            headers: {
-                "authorization": "Bearer " + accesstoken.access_token,                
-              },            
-            async: false,
-            success: function (Data) {
-                let lineInfo = JSON.parse(JSON.stringify(Data));
-                //console.log('METTT', JSON.stringify(Data));
-                for(i = 0; i < lineInfo.length; ++i) {
-                    if(lineInfo[i].LineID != 'R' || (lineInfo[i].StationName.Zh_tw != '淡水' && lineInfo[i].StationName.Zh_tw != '台北車站') || lineInfo[i].ServiceDay.ServiceTag != '平日')  {
-                        continue;
-                    }
-                    //console.log(lineInfo[i].StationName.Zh_tw);
-                    //console.log('METTT', JSON.stringify(lineInfo[i]));
-                    /*
-                    for(j = 0; j < lineInfo[i].Timetables.length && j < 30; ++j) {
-                        console.log('Metro R time', lineInfo[i].Timetables[j].DepartureTime);
-                    }
-                    */
+            let travelTimes = trainData[i].TravelTimes;
+            for(j = 0; j < trainData[i].TravelTimes.length; ++j) {
+                //console.log('MRT', JSON.stringify(trainData[i].TravelTimes[j]));
+                let FromStationName = trainData[i].TravelTimes[j].FromStationName.Zh_tw;
+                let ToStationName = trainData[i].TravelTimes[j].ToStationName.Zh_tw;
+                let zhongyi = '忠義';
+                if( '忠義' != FromStationName && '忠義' != ToStationName) {
+                    continue;
                 }
-            },
-            error: function (xhr, textStatus, thrownError) {
-                console.log('errorStatus:',textStatus);
-                console.log('Error:',thrownError);
             }
-        });
+            
+        }
+        URL =  'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TRTC?%24top=300000&%24format=JSON';
+        let lineInfo = GetAPIParsedData(URL);
+        //console.log('METTT', JSON.stringify(Data));
+        for(i = 0; i < lineInfo.length; ++i) {
+            if(lineInfo[i].LineID != 'R' || (lineInfo[i].StationName.Zh_tw != '淡水' && lineInfo[i].StationName.Zh_tw != '台北車站') || lineInfo[i].ServiceDay.ServiceTag != '平日')  {
+                continue;
+            }
+            //console.log(lineInfo[i].StationName.Zh_tw);
+            //console.log('METTT', JSON.stringify(lineInfo[i]));
+            /*
+            for(j = 0; j < lineInfo[i].Timetables.length && j < 30; ++j) {
+                console.log('Metro R time', lineInfo[i].Timetables[j].DepartureTime);
+            }
+            */
+        }
     }
-
 }
 
 function AccessTrain(){
-    function TrainPrinter(TrainTimetables) {
+    function TrainPrinter(train) {
+        let trainInfo = train.TrainInfo; 
+        let stopTime = train.StopTimes;
+        let trainNo = trainInfo.TrainNo;
+        let delayTime = 0;
+        
+        if(trainNo != undefined) {
+            let URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/TrainLiveBoard/TrainNo/' + trainNo + '?%24top=1&%24format=JSON';
+            let trainLiveBoards = GetAPIParsedData(URL).TrainLiveBoards[0];
+            if(trainLiveBoards != undefined) {
+                delayTime = trainLiveBoards.DelayTime;
+            }
+        }
+        if(!isAvailableTime(stopTime[0].DepartureTime, delayTime)) {
+           return undefined;
+        }
+
+        let lastStationIndex = stopTime.length-1;
+        let info = "車次: " + trainInfo.TrainNo + "\t車種: " + trainInfo.TrainTypeName.Zh_tw + 
+                   " \t\t["  + trainInfo.StartingStationName.Zh_tw + 
+                   "->" + trainInfo.EndingStationName.Zh_tw +
+                   "] " + stopTime[0].DepartureTime + " ~ " + 
+                   stopTime[lastStationIndex].ArrivalTime; 
+        if(delayTime > 0) 
+            info = info + " 誤點: " + delayTime + "分";
+        info = info + "\n";
+        return info;
+    }
+    function TrainTimeTablePrinter(TrainTimetables) {
         let allTrains = "";
         let trainTimes = TrainTimetables;
         trainTimes.sort(function(a,b) {
             return a.StopTimes[0].DepartureTime.localeCompare(b.StopTimes[0].DepartureTime);
         });
-    
+            
         for(i = 0, count = 0; i < trainTimes.length && count < 5; ++i) {
-            //console.log('Data', JSON.stringify(TrainTimetables[i]));
-            let trainInfo = trainTimes[i].TrainInfo; 
             let stopTime = trainTimes[i].StopTimes;
-            if(!isAvailableTime(stopTime[0].DepartureTime)) {
+            if(!isAvailableTime(stopTime[0].DepartureTime, 20)) {
                 continue;
+             }
+            let info = TrainPrinter(trainTimes[i]);
+            if(info != undefined) {
+                allTrains = allTrains + info;
+                ++count;
             }
-    
-            let lastStationIndex = stopTime.length-1;
-            let info = "車次: " + trainInfo.TrainNo + "\t車種: " + trainInfo.TrainTypeName.Zh_tw + 
-                       " \t\t["  + trainInfo.StartingStationName.Zh_tw + 
-                       "->" + trainInfo.EndingStationName.Zh_tw +
-                       "] " + stopTime[0].DepartureTime + " ~ " + 
-                       stopTime[lastStationIndex].ArrivalTime + "\n";
-            allTrains = allTrains + info;
-            ++count;
         }
         return allTrains;
     }
     let URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/Inclusive/1000/to/1020/' + getToday() + '?%24top=10000&%24format=JSONStationOfLine';
     let trainData = GetAPIParsedData(URL);
-    document.getElementById("taipei2banciaoTrain").textContent = TrainPrinter(trainData.TrainTimetables);
+    document.getElementById("taipei2banciaoTrain").textContent = TrainTimeTablePrinter(trainData.TrainTimetables);
 
     URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/Inclusive/1020/to/1000/' + getToday() + '?%24top=10000&%24format=JSONStationOfLine';
     trainData = GetAPIParsedData(URL);
-    document.getElementById("banciao2taipeiTrain").textContent = TrainPrinter(trainData.TrainTimetables);
-    
-    URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/StationLiveBoard?%24top=100000&%24format=JSON';
+    document.getElementById("banciao2taipeiTrain").textContent = TrainTimeTablePrinter(trainData.TrainTimetables);
+
+    URL = 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/StationLiveBoard/Station/1020?%24top=10000&%24format=JSON';
     trainData = GetAPIParsedData(URL);
     let liveBoard = trainData.StationLiveBoards;
     let allTrainInfo = "";
     for(i = 0; i < liveBoard.length; ++i) {
-        if(liveBoard[i].StationName.Zh_tw != '板橋') {
-            continue;
-        }
         let trainInfo = liveBoard[i].TrainTypeName.Zh_tw + " 往 " +  liveBoard[i].EndingStationName.Zh_tw + 
                         "(往" + ((liveBoard[i].Direction == 0) ? "北" : "南") + ") 抵達時間: " + 
                         liveBoard[i].ScheduleArrivalTime + "\n";
         allTrainInfo = allTrainInfo + trainInfo;
-        console.log('tetete', liveBoard[i]);
     }
     if(allTrainInfo === "") {
         allTrainInfo = "There is no Train now.";
