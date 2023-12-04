@@ -24,6 +24,8 @@ function RefineTrainType(trainType)
     let removeIndex = trainType.lastIndexOf('(');
     if(removeIndex != -1) {
         trainType = trainType.substr(0, removeIndex);
+        trainType = trainType.replace('(', '');
+        trainType = trainType.replace(')', '');
     }
     return trainType;
 }
