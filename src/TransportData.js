@@ -19,6 +19,14 @@ function isAvailableTime(stopTime, delay = 0) {
     return true;
 }
 
+function RefineTrainType(trainType)
+{
+    let removeIndex = trainType.lastIndexOf('(');
+    if(removeIndex != -1) {
+        trainType = trainType.substr(0, removeIndex);
+    }
+    return trainType;
+}
 
 function AccessTrain(){
     function TrainPrinter(train) {
@@ -39,10 +47,10 @@ function AccessTrain(){
         }
 
         let lastStationIndex = stopTime.length-1;
-        let info = "車次: " + trainInfo.TrainNo + "\t車種: " + trainInfo.TrainTypeName.Zh_tw + 
-                   " \t\t["  + trainInfo.StartingStationName.Zh_tw + 
+        let info = "車次: " + trainInfo.TrainNo + "\t車種: " + RefineTrainType(trainInfo.TrainTypeName.Zh_tw) + 
+                   " \t["  + trainInfo.StartingStationName.Zh_tw + 
                    "->" + trainInfo.EndingStationName.Zh_tw +
-                   "] " + stopTime[0].DepartureTime + " ~ " + 
+                   "]\t" + stopTime[0].DepartureTime + " ~ " + 
                    stopTime[lastStationIndex].ArrivalTime; 
         if(delayTime > 0) 
             info = info + " 誤點: " + delayTime + "分";
@@ -102,6 +110,8 @@ function AccessHSPR(){
                         " ~ " + hsprArray[i].arrivalTime + "\n";
             allHSPR = allHSPR + info;
         }
+        if(allHSPR.length == 0)
+            allHSPR = "末班駛離"; 
         return allHSPR;
     }
     
